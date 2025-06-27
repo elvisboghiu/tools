@@ -1,0 +1,11 @@
+/.idea
+/__pycache__
+/config.py
+/debug_page_source.html
+/debug_screenshot.png
+/greper.py
+/inventory_do_ams
+/relayedv3
+/ssh_grep.py
+/tools
+/venv

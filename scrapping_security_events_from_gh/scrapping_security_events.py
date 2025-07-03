@@ -1,6 +1,7 @@
 import requests
 import csv
 import os
+import datetime
 
 REPOS = [
     {"owner": "multiversx", "repo": "mx-chain-go", "endpoints": {"dependabot": True, "advisories": True, "code_scanning": True, "policy": True}},
@@ -36,10 +37,12 @@ def get_dependabot_alerts(token, owner, repo):
         r = requests.get(url, headers=headers, params=params)
         if r.status_code == 200:
             for alert in r.json():
+                package_name = alert.get("dependency", {}).get("package", {}).get("name", "")
                 results.append({
                     "type": "dependabot",
                     "link": alert.get("html_url"),
-                    "severity": alert.get("security_vulnerability", {}).get("severity", "unknown")
+                    "severity": alert.get("security_vulnerability", {}).get("severity", "unknown"),
+                    "package": package_name
                 })
             if 'next' in r.links:
                 url = r.links['next']['url']
@@ -75,15 +78,17 @@ def get_code_scanning_alerts(token, owner, repo):
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json"
     }
+    params = {"state": "open"}
     results = []
-    r = requests.get(url, headers=headers)
+    r = requests.get(url, headers=headers, params=params)
     if r.status_code == 200:
         for alert in r.json():
-            results.append({
-                "type": "code_scanning",
-                "link": alert.get("html_url"),
-                "severity": alert.get("rule", {}).get("security_severity_level", "unknown")
-            })
+            if alert.get("state") == "open":
+                results.append({
+                    "type": "code_scanning",
+                    "link": alert.get("html_url"),
+                    "severity": alert.get("rule", {}).get("security_severity_level", "unknown")
+                })
     return results
 
 
@@ -137,11 +142,13 @@ def main():
             all_results.extend(pol)
     # Save to CSV
     if all_results:
-        with open("all_security_events.csv", "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=["repo", "type", "link", "severity", "package"])
+        today = datetime.datetime.now().strftime("%Y%m%d")
+        filename = f"all_security_events_{today}.csv"
+        with open(filename, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["repo", "type", "link", "package", "severity"])
             writer.writeheader()
             writer.writerows(all_results)
-        print(f"\nSaved all results to all_security_events.csv")
+        print(f"\nSaved all results to {filename}")
     else:
         print("\nNo security events found.")
 
